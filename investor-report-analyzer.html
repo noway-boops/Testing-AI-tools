@@ -143,6 +143,7 @@
     }
     .alert-error   { background: rgba(239,68,68,.1);  border-color: var(--danger);  color: var(--danger); }
     .alert-warning { background: rgba(245,158,11,.1); border-color: var(--warning); color: var(--warning); }
+    .alert code    { background: rgba(0,0,0,.25); border-radius: 4px; padding: 0.1em 0.4em; font-family: monospace; font-size: 0.85em; }
 
     /* ── Metrics grid ── */
     .metrics-grid {
@@ -223,6 +224,17 @@
 </head>
 <body>
 <div class="container">
+
+  <!-- file:// warning (shown by JS if needed) -->
+  <div class="alert alert-warning hidden" id="file-protocol-warning">
+    <strong>Serving from the filesystem won't work.</strong>
+    Browsers block API requests from <code>file://</code> pages (they send <code>Origin: null</code>, which the Anthropic API rejects).
+    Serve the file over HTTP instead — one-liners:<br><br>
+    <code>python3 -m http.server 8080</code> &nbsp;·&nbsp;
+    <code>npx serve .</code> &nbsp;·&nbsp;
+    <code>npx http-server -p 8080</code><br><br>
+    Then open <code>http://localhost:8080/investor-report-analyzer.html</code>
+  </div>
 
   <!-- Header -->
   <header>
@@ -354,6 +366,9 @@
 
   // ── Startup ────────────────────────────────────────────────────────────────
   window.addEventListener('DOMContentLoaded', () => {
+    if (window.location.protocol === 'file:') {
+      show('file-protocol-warning');
+    }
     const saved = localStorage.getItem('anthropic_key');
     if (saved) {
       document.getElementById('api-key-input').value = saved;
@@ -487,21 +502,31 @@ Rules:
 Investor Report Text:
 ${body}`;
 
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': key,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-allow-browser': 'true',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 4096,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: userPrompt }],
-      }),
-    });
+    let res;
+    try {
+      res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': key,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-allow-browser': 'true',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 4096,
+          system: systemPrompt,
+          messages: [{ role: 'user', content: userPrompt }],
+        }),
+      });
+    } catch (networkErr) {
+      const isFile = window.location.protocol === 'file:';
+      throw new Error(
+        isFile
+          ? 'Request blocked — you must serve this file over HTTP, not open it directly. See the yellow banner at the top for instructions.'
+          : 'Network error: could not reach the Anthropic API. Check your internet connection or any browser extensions that may be blocking the request.'
+      );
+    }
 
     if (!res.ok) {
       let msg = `API error ${res.status}`;
