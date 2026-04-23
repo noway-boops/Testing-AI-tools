@@ -227,13 +227,10 @@
 
   <!-- file:// warning (shown by JS if needed) -->
   <div class="alert alert-warning hidden" id="file-protocol-warning">
-    <strong>Serving from the filesystem won't work.</strong>
-    Browsers block API requests from <code>file://</code> pages (they send <code>Origin: null</code>, which the Anthropic API rejects).
-    Serve the file over HTTP instead — one-liners:<br><br>
-    <code>python3 -m http.server 8080</code> &nbsp;·&nbsp;
-    <code>npx serve .</code> &nbsp;·&nbsp;
-    <code>npx http-server -p 8080</code><br><br>
-    Then open <code>http://localhost:8080/investor-report-analyzer.html</code>
+    <strong>You need to use server.py to run this tool.</strong>
+    Open a terminal, navigate to the folder containing both files, and run:<br><br>
+    <code>python3 server.py</code><br><br>
+    Then open <code>http://localhost:8080/investor-report-analyzer.html</code> in your browser.
   </div>
 
   <!-- Header -->
@@ -504,15 +501,11 @@ ${body}`;
 
     let res;
     try {
-      res = await fetch('https://api.anthropic.com/v1/messages', {
+      res = await fetch('/api/chat', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': key,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-allow-browser': 'true',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          api_key: key,
           model: 'claude-sonnet-4-6',
           max_tokens: 4096,
           system: systemPrompt,
@@ -520,11 +513,8 @@ ${body}`;
         }),
       });
     } catch (networkErr) {
-      const isFile = window.location.protocol === 'file:';
       throw new Error(
-        isFile
-          ? 'Request blocked — you must serve this file over HTTP, not open it directly. See the yellow banner at the top for instructions.'
-          : 'Network error: could not reach the Anthropic API. Check your internet connection or any browser extensions that may be blocking the request.'
+        'Could not reach the local server. Make sure server.py is running — open a terminal, navigate to the folder with the files, and run: python3 server.py'
       );
     }
 
