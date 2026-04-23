@@ -3,7 +3,7 @@ import os
 from openai import OpenAI
 
 INPUT_PATH = r"C:\Users\mshan\Downloads\Evals Assignment\reviews_hand_labeled.csv"
-OUTPUT_PATH = "data/reviews evaluated.csv"
+OUTPUT_PATH = r"C:\Users\mshan\Downloads\Evals Assignment\reviews evaluated.csv"
 
 client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
@@ -33,16 +33,15 @@ def main():
 
     results = []
     for row in rows:
-        title = row["review title"]
-        text = row["review text"]
-        hand_label = row["hand label"].strip()
+        title = row["review_title"]
+        text = row["review_text"]
+        hand_label = row["hand_label"].strip()
 
         llm_score = get_llm_score(title, text)
         match = "TRUE" if llm_score == hand_label else "FALSE"
 
-        results.append({**row, "llm score": llm_score, "match": match})
+        results.append({**row, "llm_score": llm_score, "match": match})
 
-    os.makedirs("data", exist_ok=True)
     fieldnames = list(results[0].keys())
     with open(OUTPUT_PATH, "w", newline="", encoding="utf-8") as outfile:
         writer = csv.DictWriter(outfile, fieldnames=fieldnames)
