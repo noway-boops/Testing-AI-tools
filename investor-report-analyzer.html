@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Investor Report Analyzer</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"></script>
+  <style>
+    :root {
+      --bg:          #0f172a;
+      --surface:     #1e293b;
+      --surface2:    #334155;
+      --border:      #475569;
+      --text:        #f1f5f9;
+      --muted:       #94a3b8;
+      --accent:      #3b82f6;
+      --accent-hi:   #60a5fa;
+      --success:     #10b981;
+      --warning:     #f59e0b;
+      --danger:      #ef4444;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    .container { max-width: 960px; margin: 0 auto; padding: 2.5rem 1.25rem 4rem; }
+
+    /* ── Header ── */
+    header { text-align: center; margin-bottom: 2.5rem; }
+    header h1 {
+      font-size: 2rem; font-weight: 800; letter-spacing: -0.02em;
+      background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 0.5rem;
+    }
+    header p { color: var(--muted); font-size: 0.95rem; }
+
+    /* ── Card ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.5rem;
+      margin-bottom: 1.25rem;
+    }
+    .card-label {
+      font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--muted); margin-bottom: 0.9rem;
+    }
+
+    /* ── Inputs / Buttons ── */
+    input[type="password"], input[type="text"] {
+      flex: 1; background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 0.7rem 1rem; color: var(--text);
+      font-size: 0.875rem; outline: none; transition: border-color .15s;
+      width: 100%;
+    }
+    input:focus { border-color: var(--accent); }
+
+    button {
+      background: var(--accent); color: #fff; border: none; border-radius: 8px;
+      padding: 0.7rem 1.2rem; font-size: 0.875rem; font-weight: 600;
+      cursor: pointer; transition: background .15s, opacity .15s; white-space: nowrap;
+    }
+    button:hover:not(:disabled) { background: var(--accent-hi); }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .btn-ghost {
+      background: transparent; border: 1px solid var(--border); color: var(--muted);
+    }
+    .btn-ghost:hover:not(:disabled) { background: var(--surface2); color: var(--text); }
+
+    .btn-sm { padding: 0.45rem 0.85rem; font-size: 0.8rem; }
+
+    /* ── API Key row ── */
+    .key-row { display: flex; gap: 0.6rem; align-items: center; }
+    .key-hint { margin-top: 0.45rem; font-size: 0.72rem; color: var(--muted); }
+    .key-hint.ok  { color: var(--success); }
+    .key-hint.err { color: var(--danger); }
+
+    /* ── Upload zone ── */
+    .upload-zone {
+      border: 2px dashed var(--border); border-radius: 12px;
+      padding: 2.75rem 2rem; text-align: center; cursor: pointer;
+      transition: border-color .15s, background .15s;
+    }
+    .upload-zone:hover, .upload-zone.drag-over {
+      border-color: var(--accent);
+      background: rgba(59,130,246,.06);
+    }
+    .upload-zone .icon { font-size: 2.8rem; margin-bottom: 0.75rem; }
+    .upload-zone h3 { font-size: 1.05rem; margin-bottom: 0.3rem; }
+    .upload-zone p  { font-size: 0.85rem; color: var(--muted); }
+    #file-input { display: none; }
+
+    /* ── File pill ── */
+    .file-pill {
+      display: flex; align-items: center; gap: 0.75rem;
+      background: var(--surface2); border-radius: 10px; padding: 0.75rem 1rem;
+      margin-top: 1rem;
+    }
+    .file-pill-icon { font-size: 1.4rem; flex-shrink: 0; }
+    .file-pill-name { font-weight: 600; font-size: 0.9rem; }
+    .file-pill-size { font-size: 0.72rem; color: var(--muted); }
+    .file-pill-actions { margin-left: auto; display: flex; gap: 0.5rem; }
+
+    /* ── Progress ── */
+    .progress-bar {
+      height: 3px; background: var(--surface2); border-radius: 2px;
+      overflow: hidden; margin-top: 0.65rem;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent) 0%, #8b5cf6 100%);
+      border-radius: 2px; transition: width .35s ease;
+    }
+
+    /* ── Status ── */
+    .status-row {
+      display: flex; align-items: center; gap: 0.75rem;
+      font-size: 0.875rem; color: var(--muted);
+    }
+    .spinner {
+      width: 18px; height: 18px; flex-shrink: 0;
+      border: 2px solid var(--border); border-top-color: var(--accent);
+      border-radius: 50%; animation: spin .75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Alerts ── */
+    .alert {
+      padding: 0.8rem 1rem; border-radius: 8px; font-size: 0.875rem;
+      border-left: 3px solid; margin-bottom: 1.25rem;
+    }
+    .alert-error   { background: rgba(239,68,68,.1);  border-color: var(--danger);  color: var(--danger); }
+    .alert-warning { background: rgba(245,158,11,.1); border-color: var(--warning); color: var(--warning); }
+
+    /* ── Metrics grid ── */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+      gap: 0.9rem;
+    }
+    .metric-card {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 1rem;
+    }
+    .metric-label { font-size: 0.72rem; color: var(--muted); margin-bottom: 0.25rem; }
+    .metric-value { font-size: 1.3rem; font-weight: 700; line-height: 1.2; }
+    .metric-change { font-size: 0.72rem; margin-top: 0.3rem; font-weight: 500; }
+    .pos { color: var(--success); }
+    .neg { color: var(--danger); }
+    .neu { color: var(--muted); }
+
+    /* ── Tabs ── */
+    .tabs {
+      display: flex; gap: 0; border-bottom: 1px solid var(--border);
+      margin-bottom: 1.5rem;
+    }
+    .tab {
+      padding: 0.55rem 1.1rem; font-size: 0.85rem; font-weight: 500;
+      cursor: pointer; background: none; border: none; border-radius: 0;
+      color: var(--muted); border-bottom: 2px solid transparent;
+      margin-bottom: -1px; transition: color .15s, border-color .15s;
+    }
+    .tab:hover:not(:disabled) { color: var(--text); background: none; }
+    .tab.active { color: var(--accent-hi); border-bottom-color: var(--accent); }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── Markdown output ── */
+    .md-content { font-size: 0.9rem; line-height: 1.75; color: var(--text); }
+    .md-content h2 {
+      font-size: 1rem; font-weight: 700; color: var(--accent-hi);
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.25rem; margin: 1.25rem 0 0.6rem;
+    }
+    .md-content h3 { font-size: 0.925rem; font-weight: 600; margin: 1rem 0 0.4rem; }
+    .md-content h1 { font-size: 1.1rem; font-weight: 700; margin: 1.25rem 0 0.6rem; }
+    .md-content p  { margin-bottom: 0.75rem; }
+    .md-content ul, .md-content ol { padding-left: 1.5rem; margin-bottom: 0.75rem; }
+    .md-content li { margin-bottom: 0.25rem; }
+    .md-content strong { color: var(--text); font-weight: 600; }
+    .md-content em { color: var(--muted); }
+    .md-content code {
+      background: var(--surface2); border-radius: 4px;
+      padding: 0.1em 0.4em; font-size: 0.82em; font-family: monospace;
+    }
+
+    /* ── Raw text box ── */
+    .raw-box {
+      background: var(--surface2); border-radius: 8px; padding: 1rem;
+      font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.72rem;
+      max-height: 320px; overflow-y: auto; white-space: pre-wrap;
+      color: var(--muted); line-height: 1.55;
+    }
+    .raw-meta { font-size: 0.78rem; color: var(--muted); margin-bottom: 0.6rem; }
+
+    /* ── Section header ── */
+    .section-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 1.1rem;
+    }
+    .section-title { font-size: 1rem; font-weight: 700; }
+    .badge {
+      font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em;
+      padding: 0.2rem 0.55rem; border-radius: 999px;
+      background: rgba(59,130,246,.18); color: var(--accent-hi);
+    }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <header>
+    <h1>Investor Report Analyzer</h1>
+    <p>Upload any investor report PDF — get AI-extracted metrics and key takeaways instantly.</p>
+  </header>
+
+  <!-- API Key -->
+  <div class="card">
+    <div class="card-label">Anthropic API Key</div>
+    <div class="key-row">
+      <input type="password" id="api-key-input" placeholder="sk-ant-api03-…" autocomplete="off">
+      <button onclick="saveKey()">Save</button>
+      <button class="btn-ghost" onclick="clearKey()">Clear</button>
+    </div>
+    <div class="key-hint" id="key-hint">
+      Stored only in your browser's localStorage — never sent anywhere except the Anthropic API.
+    </div>
+  </div>
+
+  <!-- Upload -->
+  <div class="card">
+    <div class="card-label">Upload PDF</div>
+
+    <div class="upload-zone" id="upload-zone"
+         onclick="document.getElementById('file-input').click()">
+      <div class="icon">📄</div>
+      <h3>Drop your investor report here</h3>
+      <p>or click to browse &nbsp;·&nbsp; PDF files only</p>
+    </div>
+    <input type="file" id="file-input" accept=".pdf" onchange="onFileSelect(event)">
+
+    <!-- File pill (hidden until file chosen) -->
+    <div class="file-pill hidden" id="file-pill">
+      <span class="file-pill-icon">📑</span>
+      <div>
+        <div class="file-pill-name" id="pill-name"></div>
+        <div class="file-pill-size" id="pill-size"></div>
+      </div>
+      <div class="file-pill-actions">
+        <button id="analyze-btn" onclick="run()">Analyze Report</button>
+        <button class="btn-ghost btn-sm" onclick="reset()">✕</button>
+      </div>
+    </div>
+
+    <!-- Progress (hidden until analyzing) -->
+    <div class="progress-bar hidden" id="progress-bar">
+      <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+    </div>
+  </div>
+
+  <!-- Status -->
+  <div class="card hidden" id="status-card">
+    <div class="status-row">
+      <div class="spinner"></div>
+      <span id="status-text">Working…</span>
+    </div>
+  </div>
+
+  <!-- Error -->
+  <div class="alert alert-error hidden" id="error-box"></div>
+
+  <!-- Results -->
+  <div class="hidden" id="results">
+
+    <!-- Metrics -->
+    <div class="card">
+      <div class="section-header">
+        <span class="section-title">Key Metrics</span>
+        <span class="badge">AI Extracted</span>
+      </div>
+      <div class="metrics-grid" id="metrics-grid"></div>
+    </div>
+
+    <!-- Tabbed analysis -->
+    <div class="card">
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab('takeaways',this)">Key Takeaways</button>
+        <button class="tab"        onclick="switchTab('summary',this)">Full Summary</button>
+        <button class="tab"        onclick="switchTab('raw',this)">Extracted Text</button>
+      </div>
+
+      <div class="tab-panel active" id="panel-takeaways">
+        <div class="md-content" id="content-takeaways"></div>
+      </div>
+
+      <div class="tab-panel" id="panel-summary">
+        <div class="md-content" id="content-summary"></div>
+      </div>
+
+      <div class="tab-panel" id="panel-raw">
+        <div class="raw-meta" id="raw-meta"></div>
+        <div class="raw-box"  id="raw-box"></div>
+      </div>
+    </div>
+
+  </div><!-- /results -->
+</div><!-- /container -->
+
+<script>
+  // ── PDF.js worker ──────────────────────────────────────────────────────────
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+  let activeFile  = null;
+  let rawText     = '';
+
+  // ── API key helpers ────────────────────────────────────────────────────────
+  function saveKey() {
+    const v = document.getElementById('api-key-input').value.trim();
+    if (!v) { setKeyHint('Enter a key first.', 'err'); return; }
+    localStorage.setItem('anthropic_key', v);
+    setKeyHint('✓ Key saved to localStorage.', 'ok');
+  }
+  function clearKey() {
+    localStorage.removeItem('anthropic_key');
+    document.getElementById('api-key-input').value = '';
+    setKeyHint('Key cleared.', '');
+  }
+  function getKey() {
+    return localStorage.getItem('anthropic_key') ||
+           document.getElementById('api-key-input').value.trim();
+  }
+  function setKeyHint(msg, cls) {
+    const el = document.getElementById('key-hint');
+    el.textContent = msg;
+    el.className = 'key-hint' + (cls ? ' ' + cls : '');
+  }
+
+  // ── Startup ────────────────────────────────────────────────────────────────
+  window.addEventListener('DOMContentLoaded', () => {
+    const saved = localStorage.getItem('anthropic_key');
+    if (saved) {
+      document.getElementById('api-key-input').value = saved;
+      setKeyHint('✓ Key loaded from localStorage.', 'ok');
+    }
+    initDragDrop();
+  });
+
+  // ── Drag & drop ────────────────────────────────────────────────────────────
+  function initDragDrop() {
+    const zone = document.getElementById('upload-zone');
+    zone.addEventListener('dragover',  e => { e.preventDefault(); zone.classList.add('drag-over'); });
+    zone.addEventListener('dragleave', ()  => zone.classList.remove('drag-over'));
+    zone.addEventListener('drop', e => {
+      e.preventDefault();
+      zone.classList.remove('drag-over');
+      const f = e.dataTransfer.files[0];
+      if (f?.type === 'application/pdf') loadFile(f);
+      else showError('Please drop a PDF file.');
+    });
+  }
+
+  function onFileSelect(e) {
+    const f = e.target.files[0];
+    if (f) loadFile(f);
+  }
+
+  function loadFile(f) {
+    activeFile = f;
+    document.getElementById('pill-name').textContent = f.name;
+    document.getElementById('pill-size').textContent = fmtSize(f.size);
+    show('file-pill');
+    hide('results'); hide('error-box'); hide('status-card');
+    setProgress(0);
+  }
+
+  function reset() {
+    activeFile = null; rawText = '';
+    document.getElementById('file-input').value = '';
+    hide('file-pill'); hide('results'); hide('status-card');
+    hide('error-box'); hide('progress-bar');
+    document.getElementById('analyze-btn').disabled = false;
+  }
+
+  // ── Main flow ──────────────────────────────────────────────────────────────
+  async function run() {
+    const key = getKey();
+    if (!key) { showError('Enter your Anthropic API key first.'); return; }
+    if (!activeFile) return;
+
+    const btn = document.getElementById('analyze-btn');
+    btn.disabled = true;
+    hide('error-box'); hide('results');
+
+    try {
+      // 1. Extract PDF text
+      setStatus('Extracting text from PDF…');
+      rawText = await extractText(activeFile);
+
+      if (!rawText.trim())
+        throw new Error('No readable text found. The PDF may be a scanned image — try an OCR-processed version.');
+
+      // 2. Send to Claude
+      setStatus('Sending to Claude for analysis…');
+      setProgress(45);
+      const analysis = await callClaude(rawText, key);
+
+      // 3. Render
+      setProgress(95);
+      setStatus('Rendering results…');
+      render(analysis);
+
+      setProgress(100);
+      hide('status-card');
+      document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
+
+    } catch (err) {
+      hide('status-card');
+      showError(err.message || 'Unexpected error — check the console for details.');
+      console.error(err);
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  // ── PDF text extraction ────────────────────────────────────────────────────
+  async function extractText(file) {
+    const buf = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+    let out = '';
+    for (let p = 1; p <= pdf.numPages; p++) {
+      const page    = await pdf.getPage(p);
+      const content = await page.getTextContent();
+      const pageStr = content.items.map(i => i.str).join(' ');
+      out += `\n\n[Page ${p}]\n${pageStr}`;
+      setProgress(5 + Math.round((p / pdf.numPages) * 35));
+    }
+    return out;
+  }
+
+  // ── Claude API call ────────────────────────────────────────────────────────
+  async function callClaude(text, key) {
+    const MAX = 90000;
+    const body = text.length > MAX
+      ? text.slice(0, MAX) + '\n\n[...truncated: document exceeded analysis limit...]'
+      : text;
+
+    const systemPrompt = `You are a senior financial analyst. When given investor report text, you return a single JSON object — no prose, no markdown fences, just the raw JSON.`;
+
+    const userPrompt = `Analyze this investor report and return ONLY a JSON object with this schema:
+
+{
+  "metrics": [
+    {
+      "label": string,
+      "value": string,
+      "change": string | null,
+      "sentiment": "positive" | "negative" | "neutral"
+    }
+  ],
+  "takeaways": string,
+  "summary": string
+}
+
+Rules:
+- "metrics": 6–10 key financial/operational figures (revenue, EPS, margin, growth rate, guidance, etc.). Omit any metric not explicitly stated; do not fabricate.
+- "takeaways": Markdown. Use ## headers to group themes. 5–8 tight bullet points an investor cares about most. Bold critical numbers.
+- "summary": Markdown. 4–6 paragraphs covering: business performance, segment/product breakdown, outlook & guidance, key risks, and strategic opportunities.
+- If a field cannot be populated from the document, set it to null / empty array.
+
+Investor Report Text:
+${body}`;
+
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-allow-browser': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 4096,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }],
+      }),
+    });
+
+    if (!res.ok) {
+      let msg = `API error ${res.status}`;
+      try { const e = await res.json(); msg = e.error?.message || msg; } catch {}
+      throw new Error(msg);
+    }
+
+    const data = await res.json();
+    const raw  = data.content[0].text.trim();
+
+    // Strip optional markdown code fences
+    const cleaned = raw
+      .replace(/^```(?:json)?\s*/i, '')
+      .replace(/\s*```$/, '')
+      .trim();
+
+    try {
+      return JSON.parse(cleaned);
+    } catch {
+      // Last-ditch: pull out the first {...} block
+      const m = cleaned.match(/\{[\s\S]*\}/);
+      if (m) return JSON.parse(m[0]);
+      throw new Error('Could not parse the AI response as JSON. Please try again.');
+    }
+  }
+
+  // ── Render results ─────────────────────────────────────────────────────────
+  function render(a) {
+    // Metrics
+    const grid = document.getElementById('metrics-grid');
+    if (a.metrics?.length) {
+      grid.innerHTML = a.metrics.map(m => {
+        const cls = m.sentiment === 'positive' ? 'pos'
+                  : m.sentiment === 'negative' ? 'neg' : 'neu';
+        return `<div class="metric-card">
+          <div class="metric-label">${esc(m.label)}</div>
+          <div class="metric-value">${esc(m.value)}</div>
+          ${m.change ? `<div class="metric-change ${cls}">${esc(m.change)}</div>` : ''}
+        </div>`;
+      }).join('');
+    } else {
+      grid.innerHTML = '<p style="color:var(--muted);font-size:.85rem">No structured metrics found in document.</p>';
+    }
+
+    // Markdown panels
+    document.getElementById('content-takeaways').innerHTML =
+      marked.parse(a.takeaways || '_No takeaways generated._');
+    document.getElementById('content-summary').innerHTML =
+      marked.parse(a.summary   || '_No summary generated._');
+
+    // Raw text
+    document.getElementById('raw-meta').textContent =
+      `${rawText.length.toLocaleString()} characters extracted · ` +
+      `${rawText.split('[Page').length - 1} pages detected`;
+    document.getElementById('raw-box').textContent = rawText;
+
+    show('results');
+  }
+
+  // ── Tabs ───────────────────────────────────────────────────────────────────
+  function switchTab(name, btn) {
+    ['takeaways','summary','raw'].forEach(id => {
+      document.getElementById('panel-' + id).classList.toggle('active', id === name);
+    });
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+  }
+
+  // ── UI helpers ─────────────────────────────────────────────────────────────
+  function setStatus(msg) {
+    document.getElementById('status-text').textContent = msg;
+    show('status-card');
+    show('progress-bar');
+  }
+  function setProgress(pct) {
+    document.getElementById('progress-fill').style.width = pct + '%';
+  }
+  function showError(msg) {
+    const el = document.getElementById('error-box');
+    el.textContent = '⚠ ' + msg;
+    show(el);
+  }
+  function show(idOrEl) {
+    const el = typeof idOrEl === 'string' ? document.getElementById(idOrEl) : idOrEl;
+    el?.classList.remove('hidden');
+  }
+  function hide(idOrEl) {
+    const el = typeof idOrEl === 'string' ? document.getElementById(idOrEl) : idOrEl;
+    el?.classList.add('hidden');
+  }
+  function fmtSize(b) {
+    if (b < 1024)        return b + ' B';
+    if (b < 1048576)     return (b/1024).toFixed(1) + ' KB';
+    return (b/1048576).toFixed(1) + ' MB';
+  }
+  function esc(s) {
+    return String(s ?? '')
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+</script>
+</body>
+</html>
