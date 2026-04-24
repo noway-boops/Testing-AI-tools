@@ -263,31 +263,6 @@
     .sql-string  { color: #34d399; }
     .sql-number  { color: #f87171; }
 
-    /* ── Plain-text output ── */
-    .plain-output-label {
-        font-size: 12px;
-        font-weight: 500;
-        color: var(--text-secondary);
-        margin-top: 12px;
-        margin-bottom: 4px;
-    }
-    .plain-output-wrapper { position: relative; }
-    #outputPlain {
-        width: 100%;
-        padding: 12px;
-        padding-right: 72px;
-        font-family: "JetBrains Mono", monospace;
-        font-size: 13.5px;
-        line-height: 1.7;
-        background: var(--input-bg);
-        color: var(--text-primary);
-        border: 1px solid var(--input-border);
-        border-radius: 8px;
-        resize: vertical;
-        outline: none;
-        margin-bottom: 0;
-    }
-
     /* ── Copy button ── */
     .copy-btn {
         position: absolute;
@@ -425,12 +400,7 @@ departments(id INT, name VARCHAR)"></textarea>
     <div class="section-body expanded" id="output-section">
         <div class="output-wrapper">
             <div id="output">-- SQL will appear here --</div>
-            <button class="copy-btn" onclick="copySQL('output', this)">Copy</button>
-        </div>
-        <div class="plain-output-label">Plain text — copy from here if the highlighted version causes paste errors</div>
-        <div class="plain-output-wrapper">
-            <textarea id="outputPlain" rows="4" readonly placeholder="-- Plain SQL will appear here --"></textarea>
-            <button class="copy-btn" onclick="copySQL('outputPlain', this)">Copy</button>
+            <button class="copy-btn" onclick="copySQL()">Copy</button>
         </div>
     </div>
 
@@ -483,11 +453,11 @@ function highlightSQL(sql) {
     return out;
 }
 
-async function copySQL(sourceId, btn) {
-    const el   = document.getElementById(sourceId);
-    const text = sourceId === 'outputPlain' ? el.value : el.innerText;
-    if (!text || text.startsWith('--')) return;
+async function copySQL() {
+    const text = document.getElementById('output').innerText;
+    if (text === '-- SQL will appear here --') return;
     await navigator.clipboard.writeText(text);
+    const btn = document.querySelector('.copy-btn');
     btn.textContent = 'Copied!';
     setTimeout(() => btn.textContent = 'Copy', 1500);
 }
@@ -533,7 +503,6 @@ Case Sensitive: ${caseSensitive}`;
     spinner.style.display = 'block';
     btnText.textContent = 'Generating...';
     document.getElementById('output').innerHTML = '<span style="color:#6b7280">Generating...</span>';
-    document.getElementById('outputPlain').value = '';
 
     const outputBody = document.getElementById('output-section');
     if (outputBody.classList.contains('collapsed')) toggleSection('output-section');
@@ -559,7 +528,6 @@ Case Sensitive: ${caseSensitive}`;
         const sql   = data.choices?.[0]?.message?.content || 'Error generating SQL';
         const clean = sql.replace(/^```sql\n?/i,'').replace(/^```\n?/,'').replace(/```$/,'').trim();
         document.getElementById('output').innerHTML = highlightSQL(clean);
-        document.getElementById('outputPlain').value = clean;
 
     } catch (err) {
         document.getElementById('output').innerHTML =
