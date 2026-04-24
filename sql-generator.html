@@ -7,23 +7,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
+    /* ── Light mode (default) ── */
     :root {
-        --bg:             #0f172a;
-        --container-bg:   #111827;
-        --text-primary:   #e5e7eb;
-        --text-secondary: #9ca3af;
-        --accent:         #3b82f6;
-        --accent-hover:   #2563eb;
-        --input-bg:       #020617;
-        --input-border:   #374151;
-        --badge-bg:       #1f2937;
-        --badge-text:     #93c5fd;
-        --divider:        #1f2937;
-        --output-bg:      #020617;
-        --output-text:    #22c55e;
-    }
-
-    [data-theme="light"] {
         --bg:             #f9fafb;
         --container-bg:   #ffffff;
         --text-primary:   #111827;
@@ -36,6 +21,23 @@
         --badge-text:     #1d4ed8;
         --divider:        #e5e7eb;
         --output-bg:      #1e293b;
+        --output-text:    #22c55e;
+    }
+
+    /* ── Dark mode — built from Pantone 17-3932 (#6878B0 periwinkle) ── */
+    [data-theme="dark"] {
+        --bg:             #6878B0;
+        --container-bg:   #2E4070;
+        --text-primary:   #EEF2FF;
+        --text-secondary: #A8BDE0;
+        --accent:         #93C5FD;
+        --accent-hover:   #60A5FA;
+        --input-bg:       #1E2E55;
+        --input-border:   #405080;
+        --badge-bg:       #1E2E55;
+        --badge-text:     #BDD5FF;
+        --divider:        #405080;
+        --output-bg:      #111E3C;
         --output-text:    #22c55e;
     }
 
@@ -88,7 +90,7 @@
     }
     .theme-toggle:hover { color: var(--text-primary); }
 
-    /* ── API key box ── */
+    /* ── API key + config box ── */
     .api-key-section {
         background: rgba(59,130,246,0.07);
         border: 1px solid rgba(59,130,246,0.3);
@@ -102,6 +104,13 @@
         color: var(--badge-text);
         margin-bottom: 6px;
     }
+    .api-key-row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 12px;
+        align-items: end;
+    }
+    .api-key-row .field { display: flex; flex-direction: column; }
     .api-key-note {
         font-size: 12px;
         color: var(--text-secondary);
@@ -251,7 +260,6 @@
 
     /* ── SQL syntax colours ── */
     .sql-keyword { color: #60a5fa; font-weight: 600; }
-    .sql-table   { color: #fbbf24; }
     .sql-string  { color: #34d399; }
     .sql-number  { color: #f87171; }
 
@@ -279,13 +287,27 @@
 
     <div class="page-header">
         <h1>SQL Generator</h1>
-        <button class="theme-toggle" id="themeBtn" onclick="toggleTheme()">☀️ Light Mode</button>
+        <button class="theme-toggle" id="themeBtn" onclick="toggleTheme()">🌙 Dark Mode</button>
     </div>
 
-    <!-- API Key -->
+    <!-- API Key + Model -->
     <div class="api-key-section">
-        <label>🔑 OpenAI API Key</label>
-        <input type="password" id="apiKey" placeholder="Paste your sk-... key here">
+        <label>🔑 API Configuration</label>
+        <div class="api-key-row">
+            <div class="field">
+                <label>OpenAI API Key</label>
+                <input type="password" id="apiKey" placeholder="Paste your sk-... key here">
+            </div>
+            <div class="field">
+                <label>Model</label>
+                <select id="model">
+                    <option value="gpt-4o-mini">gpt-4o-mini — fast &amp; cheap</option>
+                    <option value="gpt-4o">gpt-4o — most capable</option>
+                    <option value="gpt-4-turbo">gpt-4-turbo — powerful</option>
+                    <option value="gpt-3.5-turbo">gpt-3.5-turbo — legacy</option>
+                </select>
+            </div>
+        </div>
         <div class="api-key-note">Used only in this browser session — never saved or sent anywhere except OpenAI.</div>
     </div>
 
@@ -388,12 +410,12 @@ departments(id INT, name VARCHAR)"></textarea>
 function toggleTheme() {
     const html = document.documentElement;
     const btn  = document.getElementById('themeBtn');
-    if (html.dataset.theme === 'light') {
+    if (html.dataset.theme === 'dark') {
         html.removeAttribute('data-theme');
-        btn.textContent = '☀️ Light Mode';
-    } else {
-        html.dataset.theme = 'light';
         btn.textContent = '🌙 Dark Mode';
+    } else {
+        html.dataset.theme = 'dark';
+        btn.textContent = '☀️ Light Mode';
     }
 }
 
@@ -422,11 +444,8 @@ function highlightSQL(sql) {
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;');
-    // strings
     out = out.replace(/'([^']*)'/g, '<span class="sql-string">\'$1\'</span>');
-    // numbers
     out = out.replace(/\b(\d+)\b/g, '<span class="sql-number">$1</span>');
-    // keywords
     keywords.forEach(kw => {
         out = out.replace(new RegExp('\\b' + kw + '\\b', 'gi'),
             m => `<span class="sql-keyword">${m.toUpperCase()}</span>`);
@@ -435,8 +454,7 @@ function highlightSQL(sql) {
 }
 
 async function copySQL() {
-    const el = document.getElementById('output');
-    const text = el.innerText;
+    const text = document.getElementById('output').innerText;
     if (text === '-- SQL will appear here --') return;
     await navigator.clipboard.writeText(text);
     const btn = document.querySelector('.copy-btn');
@@ -445,14 +463,15 @@ async function copySQL() {
 }
 
 async function generateSQL() {
-    const apiKey       = document.getElementById('apiKey').value.trim();
-    const rdbms        = document.getElementById('rdbms').value;
-    const schema       = document.getElementById('schema').value;
-    const caseSensitive= document.getElementById('caseSensitive').value;
-    const tables       = document.getElementById('tables').value;
-    const relationships= document.getElementById('relationships').value;
-    const constraints  = document.getElementById('constraints').value;
-    const nlQuery      = document.getElementById('nlQuery').value;
+    const apiKey        = document.getElementById('apiKey').value.trim();
+    const model         = document.getElementById('model').value;
+    const rdbms         = document.getElementById('rdbms').value;
+    const schema        = document.getElementById('schema').value;
+    const caseSensitive = document.getElementById('caseSensitive').value;
+    const tables        = document.getElementById('tables').value;
+    const relationships = document.getElementById('relationships').value;
+    const constraints   = document.getElementById('constraints').value;
+    const nlQuery       = document.getElementById('nlQuery').value;
 
     if (!apiKey) {
         document.getElementById('output').innerHTML =
@@ -485,7 +504,6 @@ Case Sensitive: ${caseSensitive}`;
     btnText.textContent = 'Generating...';
     document.getElementById('output').innerHTML = '<span style="color:#6b7280">Generating...</span>';
 
-    // Ensure output section is visible
     const outputBody = document.getElementById('output-section');
     if (outputBody.classList.contains('collapsed')) toggleSection('output-section');
 
@@ -497,7 +515,7 @@ Case Sensitive: ${caseSensitive}`;
                 'Authorization': 'Bearer ' + apiKey
             },
             body: JSON.stringify({
-                model: 'gpt-4o-mini',
+                model: model,
                 messages: [
                     { role: 'system', content: systemPrompt },
                     { role: 'user',   content: nlQuery }
@@ -506,8 +524,8 @@ Case Sensitive: ${caseSensitive}`;
             })
         });
 
-        const data = await response.json();
-        const sql  = data.choices?.[0]?.message?.content || 'Error generating SQL';
+        const data  = await response.json();
+        const sql   = data.choices?.[0]?.message?.content || 'Error generating SQL';
         const clean = sql.replace(/^```sql\n?/i,'').replace(/^```\n?/,'').replace(/```$/,'').trim();
         document.getElementById('output').innerHTML = highlightSQL(clean);
 
