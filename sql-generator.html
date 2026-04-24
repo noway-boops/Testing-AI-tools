@@ -207,7 +207,36 @@
         border-color: var(--accent);
         box-shadow: 0 0 0 2px rgba(59,130,246,0.25);
     }
-    select { cursor: pointer; }
+    select {
+        cursor: pointer;
+        padding-right: 36px;
+    }
+    select:hover {
+        border-color: var(--accent);
+        background-color: var(--input-bg);
+        filter: brightness(0.96);
+    }
+
+    /* ── Select wrapper arrow ── */
+    .select-wrapper {
+        position: relative;
+        display: block;
+        margin-bottom: 12px;
+    }
+    .select-wrapper select {
+        margin-bottom: 0;
+        width: 100%;
+    }
+    .select-wrapper::after {
+        content: '▾';
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--accent);
+        font-size: 18px;
+        pointer-events: none;
+    }
 
     /* ── Generate button ── */
     .generate-btn {
@@ -303,12 +332,14 @@
             </div>
             <div class="field">
                 <label>Model</label>
-                <select id="model">
-                    <option value="gpt-4o-mini">gpt-4o-mini — fast &amp; cheap</option>
-                    <option value="gpt-4o">gpt-4o — most capable</option>
-                    <option value="gpt-4-turbo">gpt-4-turbo — powerful</option>
-                    <option value="gpt-3.5-turbo">gpt-3.5-turbo — legacy</option>
-                </select>
+                <div class="select-wrapper">
+                    <select id="model">
+                        <option value="gpt-4o-mini">gpt-4o-mini — fast &amp; cheap</option>
+                        <option value="gpt-4o">gpt-4o — most capable</option>
+                        <option value="gpt-4-turbo">gpt-4-turbo — powerful</option>
+                        <option value="gpt-3.5-turbo">gpt-3.5-turbo — legacy</option>
+                    </select>
+                </div>
             </div>
         </div>
         <div class="api-key-note">Used only in this browser session — never saved or sent anywhere except OpenAI.</div>
@@ -325,20 +356,24 @@
     </div>
     <div class="section-body collapsed" id="db-setup">
         <label>RDBMS</label>
-        <select id="rdbms">
-            <option>Oracle</option>
-            <option>SQLite</option>
-            <option>PostgreSQL</option>
-            <option>MySQL</option>
-            <option>SQL Server</option>
-        </select>
+        <div class="select-wrapper">
+            <select id="rdbms">
+                <option>Oracle</option>
+                <option>SQLite</option>
+                <option>PostgreSQL</option>
+                <option>MySQL</option>
+                <option>SQL Server</option>
+            </select>
+        </div>
         <label>Default Schema (optional)</label>
         <input type="text" id="schema" placeholder="e.g., public, dbo">
         <label>Case Sensitive Identifiers</label>
-        <select id="caseSensitive">
-            <option>No</option>
-            <option>Yes</option>
-        </select>
+        <div class="select-wrapper">
+            <select id="caseSensitive">
+                <option>No</option>
+                <option>Yes</option>
+            </select>
+        </div>
     </div>
 
     <hr class="divider">
