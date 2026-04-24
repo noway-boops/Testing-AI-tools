@@ -488,6 +488,13 @@ Rules:
 - Do not guess missing info
 - If missing info, return an error message
 
+Formatting:
+- Each major clause (SELECT, FROM, WHERE, JOIN, GROUP BY, ORDER BY, HAVING) on its own line
+- Each selected column on its own line, indented 4 spaces
+- JOIN conditions indented 4 spaces under the JOIN line
+- WHERE and HAVING conditions indented 4 spaces
+- Closing semicolon on its own line
+
 Context:
 Schema: ${tables}
 Relationships: ${relationships}
