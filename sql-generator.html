@@ -478,17 +478,27 @@ function highlightSQL(sql) {
         'FETCH','FIRST','ROWS','ONLY','TOP','DESC','ASC','COUNT','SUM','AVG',
         'MIN','MAX','INTO','VALUES','SET','OVER','PARTITION','ROW_NUMBER','RANK'
     ];
-    let out = sql
+
+    const escaped = sql
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;');
-    out = out.replace(/'([^']*)'/g, '<span class="sql-string">\'$1\'</span>');
-    out = out.replace(/\b(\d+)\b/g, '<span class="sql-number">$1</span>');
-    keywords.forEach(kw => {
-        out = out.replace(new RegExp('\\b' + kw + '\\b', 'gi'),
-            m => `<span class="sql-keyword">${m.toUpperCase()}</span>`);
-    });
-    return out;
+
+    // Split on quoted strings (single or double) so keywords are never
+    // highlighted inside alias names or string values
+    const parts = escaped.split(/((?:'[^']*')|(?:"[^"]*"))/g);
+
+    return parts.map((part, i) => {
+        if (i % 2 === 1) {
+            return `<span class="sql-string">${part}</span>`;
+        }
+        let out = part.replace(/\b(\d+)\b/g, '<span class="sql-number">$1</span>');
+        keywords.forEach(kw => {
+            out = out.replace(new RegExp('\\b' + kw + '\\b', 'gi'),
+                m => `<span class="sql-keyword">${m.toUpperCase()}</span>`);
+        });
+        return out;
+    }).join('');
 }
 
 async function copySQL() {
