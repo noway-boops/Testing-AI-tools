@@ -37,12 +37,33 @@
         padding: 15px;
         white-space: pre-wrap;
     }
+    .api-key-section {
+        background: #fff8e1;
+        border: 1px solid #f0c040;
+        border-radius: 6px;
+        padding: 12px 16px;
+        margin-bottom: 20px;
+    }
+    .api-key-section label {
+        font-weight: bold;
+    }
+    .api-key-note {
+        font-size: 12px;
+        color: #888;
+        margin-top: 4px;
+    }
 </style>
 </head>
 <body>
 
 <div class="container">
     <h1>SQL Generator</h1>
+
+    <div class="api-key-section">
+        <label>OpenAI API Key</label>
+        <input type="password" id="apiKey" placeholder="Paste your sk-... key here">
+        <div class="api-key-note">Your key is used only in this browser session and is never saved or sent anywhere except OpenAI.</div>
+    </div>
 
     <h2>1. Database Setup</h2>
     <label>RDBMS</label>
@@ -93,7 +114,13 @@ async function generateSQL() {
     const tables = document.getElementById("tables").value;
     const relationships = document.getElementById("relationships").value;
     const constraints = document.getElementById("constraints").value;
+    const apiKey = document.getElementById("apiKey").value.trim();
     const nlQuery = document.getElementById("nlQuery").value;
+
+    if (!apiKey) {
+        document.getElementById("output").textContent = "Error: Please paste your OpenAI API key at the top of the page.";
+        return;
+    }
 
     const systemPrompt = `
 You are an expert SQL generator.
@@ -122,7 +149,7 @@ Case Sensitive: ${caseSensitive}
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                "Authorization": "Bearer YOUR_API_KEY_HERE"
+                "Authorization": "Bearer " + apiKey
             },
             body: JSON.stringify({
                 model: "gpt-4o-mini",
