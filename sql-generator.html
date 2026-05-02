@@ -510,6 +510,79 @@ async function copySQL() {
     setTimeout(() => btn.textContent = 'Copy', 1500);
 }
 
+function detectConflicts(rdbms, constraints) {
+    if (!constraints.trim()) return null;
+
+    const conflicts = {
+        'SQLite': [
+            { pattern: /\bTRUNC\s*\(/i,      label: 'TRUNC()',     origin: 'Oracle'      },
+            { pattern: /\bNVL\s*\(/i,         label: 'NVL()',       origin: 'Oracle'      },
+            { pattern: /\bSYSDATE\b/i,        label: 'SYSDATE',     origin: 'Oracle'      },
+            { pattern: /\bROWNUM\b/i,         label: 'ROWNUM',      origin: 'Oracle'      },
+            { pattern: /\bCONNECT\s+BY\b/i,  label: 'CONNECT BY',  origin: 'Oracle'      },
+            { pattern: /\bDECODE\s*\(/i,      label: 'DECODE()',    origin: 'Oracle'      },
+            { pattern: /\bDUAL\b/i,           label: 'DUAL',        origin: 'Oracle'      },
+            { pattern: /\bGETDATE\s*\(/i,     label: 'GETDATE()',   origin: 'SQL Server'  },
+            { pattern: /\bISNULL\s*\(/i,      label: 'ISNULL()',    origin: 'SQL Server'  },
+            { pattern: /\bDATEADD\s*\(/i,     label: 'DATEADD()',   origin: 'SQL Server'  },
+            { pattern: /\bDATEDIFF\s*\(/i,    label: 'DATEDIFF()',  origin: 'SQL Server'  },
+            { pattern: /\bNOLOCK\b/i,         label: 'NOLOCK',      origin: 'SQL Server'  },
+            { pattern: /\bTOP\b/i,            label: 'TOP',         origin: 'SQL Server'  },
+        ],
+        'PostgreSQL': [
+            { pattern: /\bROWNUM\b/i,         label: 'ROWNUM',      origin: 'Oracle'      },
+            { pattern: /\bSYSDATE\b/i,        label: 'SYSDATE',     origin: 'Oracle'      },
+            { pattern: /\bNVL\s*\(/i,         label: 'NVL()',       origin: 'Oracle'      },
+            { pattern: /\bCONNECT\s+BY\b/i,  label: 'CONNECT BY',  origin: 'Oracle'      },
+            { pattern: /\bDECODE\s*\(/i,      label: 'DECODE()',    origin: 'Oracle'      },
+            { pattern: /\bDUAL\b/i,           label: 'DUAL',        origin: 'Oracle'      },
+            { pattern: /\bTOP\b/i,            label: 'TOP',         origin: 'SQL Server'  },
+            { pattern: /\bGETDATE\s*\(/i,     label: 'GETDATE()',   origin: 'SQL Server'  },
+            { pattern: /\bISNULL\s*\(/i,      label: 'ISNULL()',    origin: 'SQL Server'  },
+            { pattern: /\bNOLOCK\b/i,         label: 'NOLOCK',      origin: 'SQL Server'  },
+        ],
+        'MySQL': [
+            { pattern: /\bROWNUM\b/i,         label: 'ROWNUM',      origin: 'Oracle'      },
+            { pattern: /\bNVL\s*\(/i,         label: 'NVL()',       origin: 'Oracle'      },
+            { pattern: /\bCONNECT\s+BY\b/i,  label: 'CONNECT BY',  origin: 'Oracle'      },
+            { pattern: /\bDECODE\s*\(/i,      label: 'DECODE()',    origin: 'Oracle'      },
+            { pattern: /\bDUAL\b/i,           label: 'DUAL',        origin: 'Oracle'      },
+            { pattern: /\bFETCH\s+FIRST\b/i,  label: 'FETCH FIRST', origin: 'Oracle'      },
+            { pattern: /\bTOP\b/i,            label: 'TOP',         origin: 'SQL Server'  },
+            { pattern: /\bGETDATE\s*\(/i,     label: 'GETDATE()',   origin: 'SQL Server'  },
+            { pattern: /\bNOLOCK\b/i,         label: 'NOLOCK',      origin: 'SQL Server'  },
+        ],
+        'SQL Server': [
+            { pattern: /\bROWNUM\b/i,         label: 'ROWNUM',      origin: 'Oracle'      },
+            { pattern: /\bSYSDATE\b/i,        label: 'SYSDATE',     origin: 'Oracle'      },
+            { pattern: /\bNVL\s*\(/i,         label: 'NVL()',       origin: 'Oracle'      },
+            { pattern: /\bCONNECT\s+BY\b/i,  label: 'CONNECT BY',  origin: 'Oracle'      },
+            { pattern: /\bDECODE\s*\(/i,      label: 'DECODE()',    origin: 'Oracle'      },
+            { pattern: /\bDUAL\b/i,           label: 'DUAL',        origin: 'Oracle'      },
+            { pattern: /\bTRUNC\s*\(/i,       label: 'TRUNC()',     origin: 'Oracle'      },
+            { pattern: /\bLIMIT\b/i,          label: 'LIMIT',       origin: 'MySQL / PostgreSQL / SQLite' },
+            { pattern: /\bNOW\s*\(\s*\)/i,    label: 'NOW()',       origin: 'MySQL / PostgreSQL' },
+            { pattern: /\bIFNULL\s*\(/i,      label: 'IFNULL()',    origin: 'MySQL'       },
+        ],
+        'Oracle': [
+            { pattern: /\bGETDATE\s*\(/i,     label: 'GETDATE()',   origin: 'SQL Server'  },
+            { pattern: /\bISNULL\s*\(/i,      label: 'ISNULL()',    origin: 'SQL Server'  },
+            { pattern: /\bNOLOCK\b/i,         label: 'NOLOCK',      origin: 'SQL Server'  },
+            { pattern: /\bLIMIT\b/i,          label: 'LIMIT',       origin: 'MySQL / PostgreSQL / SQLite' },
+            { pattern: /\bNOW\s*\(\s*\)/i,    label: 'NOW()',       origin: 'MySQL / PostgreSQL' },
+            { pattern: /\bIFNULL\s*\(/i,      label: 'IFNULL()',    origin: 'MySQL'       },
+        ],
+    };
+
+    const rules = conflicts[rdbms] || [];
+    for (const rule of rules) {
+        if (rule.pattern.test(constraints)) {
+            return `Conflicting instructions detected: your selected database is ${rdbms}, but the SQL Constraints field contains ${rule.label}, which is specific to ${rule.origin}. Please remove or replace it and try again.`;
+        }
+    }
+    return null;
+}
+
 async function generateSQL() {
     const apiKey        = document.getElementById('apiKey').value.trim();
     const model         = document.getElementById('model').value;
@@ -524,6 +597,15 @@ async function generateSQL() {
     if (!apiKey) {
         document.getElementById('output').innerHTML =
             '<span style="color:#f87171">Error: Please paste your OpenAI API key at the top of the page.</span>';
+        return;
+    }
+
+    const conflictError = detectConflicts(rdbms, constraints);
+    if (conflictError) {
+        const outputBody = document.getElementById('output-section');
+        if (outputBody.classList.contains('collapsed')) toggleSection('output-section');
+        document.getElementById('output').innerHTML =
+            '<span style="color:#f87171">⚠ ' + conflictError + '</span>';
         return;
     }
 
